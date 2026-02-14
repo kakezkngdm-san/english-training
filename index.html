@@ -524,14 +524,26 @@
         // 初期化関数
         async function initializeApp() {
             try {
+                console.log('=== Initializing app ===');
+                
                 // iOS Safari対策：AudioContextを初期化
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 await audioContext.resume();
+                console.log('AudioContext initialized');
 
-                // 音声合成を初期化
-                const utterance = new SpeechSynthesisUtterance('初期化中');
-                utterance.volume = 0.01;
-                speechSynthesis.speak(utterance);
+                // 音声合成のテスト
+                console.log('Testing speech synthesis...');
+                const testUtterance = new SpeechSynthesisUtterance('テスト');
+                testUtterance.volume = 0.01;
+                speechSynthesis.speak(testUtterance);
+                
+                // 音声合成の完了を待つ
+                await new Promise((resolve) => {
+                    testUtterance.onend = resolve;
+                    testUtterance.onerror = resolve;
+                    setTimeout(resolve, 1000); // 最大1秒待つ
+                });
+                console.log('Speech synthesis test completed');
 
                 // 音声認識を初期化
                 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -542,12 +554,16 @@
                     recognition.interimResults = false;
                     recognition.maxAlternatives = 1;
 
+                    console.log('Speech recognition initialized');
+
                     // 音声認識の許可を要求するため、一度起動してすぐ停止
                     try {
+                        console.log('Testing speech recognition permission...');
                         recognition.start();
                         setTimeout(() => {
                             try {
                                 recognition.stop();
+                                console.log('Speech recognition test completed');
                             } catch (e) {
                                 console.log('Recognition stop error (expected):', e);
                             }
@@ -565,20 +581,28 @@
                 }
 
                 // 日本語音声を設定
-                speechSynthesis.onvoiceschanged = () => {
+                const loadVoices = () => {
                     const voices = speechSynthesis.getVoices();
                     synthVoice = voices.find(v => v.lang.startsWith('ja')) || voices[0];
+                    console.log('Voice loaded:', synthVoice ? synthVoice.name : 'default');
                 };
 
+                speechSynthesis.onvoiceschanged = loadVoices;
+                loadVoices();
+
                 // 音声のロード待機
-                const voices = speechSynthesis.getVoices();
-                if (voices.length === 0) {
+                if (speechSynthesis.getVoices().length === 0) {
+                    console.log('Waiting for voices to load...');
                     await new Promise(resolve => {
-                        speechSynthesis.onvoiceschanged = () => {
-                            const voices = speechSynthesis.getVoices();
-                            synthVoice = voices.find(v => v.lang.startsWith('ja')) || voices[0];
-                            resolve();
-                        };
+                        let attempts = 0;
+                        const checkVoices = setInterval(() => {
+                            attempts++;
+                            if (speechSynthesis.getVoices().length > 0 || attempts > 10) {
+                                clearInterval(checkVoices);
+                                loadVoices();
+                                resolve();
+                            }
+                        }, 200);
                     });
                 }
 
@@ -593,16 +617,20 @@
                 // オーバーレイを非表示
                 document.getElementById('initOverlay').classList.add('hidden');
 
+                console.log('=== App initialized successfully ===');
                 await speak('初期化完了。トレーニングを開始できます。');
             } catch (error) {
                 console.error('初期化エラー:', error);
-                alert('初期化に失敗しました。マイクの許可を確認してください。');
+                alert('初期化に失敗しました。マイクの許可を確認してください。\n\nエラー: ' + error.message);
             }
         }
 
         // 音声合成関数
         function speak(text, lang = 'ja-JP', onEnd = null) {
             return new Promise((resolve) => {
+                // 既存の音声をキャンセル
+                speechSynthesis.cancel();
+                
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = lang;
                 utterance.rate = lang === 'ja-JP' ? 1.0 : 0.9;
@@ -613,12 +641,46 @@
                     utterance.voice = synthVoice;
                 }
 
+                let hasEnded = false;
+                const timeout = setTimeout(() => {
+                    if (!hasEnded) {
+                        console.log('Speech timeout, forcing resolve');
+                        hasEnded = true;
+                        speechSynthesis.cancel();
+                        if (onEnd) onEnd();
+                        resolve();
+                    }
+                }, text.length * 100 + 3000); // テキストの長さに応じたタイムアウト
+
                 utterance.onend = () => {
-                    if (onEnd) onEnd();
-                    resolve();
+                    if (!hasEnded) {
+                        hasEnded = true;
+                        clearTimeout(timeout);
+                        console.log('Speech ended normally');
+                        if (onEnd) onEnd();
+                        resolve();
+                    }
                 };
 
+                utterance.onerror = (event) => {
+                    if (!hasEnded) {
+                        hasEnded = true;
+                        clearTimeout(timeout);
+                        console.error('Speech error:', event);
+                        if (onEnd) onEnd();
+                        resolve();
+                    }
+                };
+
+                console.log('Speaking:', text.substring(0, 30) + '...');
                 speechSynthesis.speak(utterance);
+                
+                // iOS Safari対策：音声開始を確認
+                setTimeout(() => {
+                    if (speechSynthesis.paused) {
+                        speechSynthesis.resume();
+                    }
+                }, 100);
             });
         }
 
@@ -1179,18 +1241,24 @@ ${userAnswer}
 
         // トレーニングループ
         async function runTrainingLoop() {
+            console.log('=== Training loop started ===');
+            
             while (isRunning) {
                 try {
+                    console.log('--- New question cycle ---');
+                    
                     // 1. 問題生成
                     updateStatus('問題を生成中...', '', '', '');
                     setButtonLoading(true);
 
                     currentQuestion = await generateQuestion();
                     if (!currentQuestion) {
+                        console.error('Failed to generate question');
                         stopTraining();
                         break;
                     }
 
+                    console.log('Question generated:', currentQuestion.japanese);
                     currentAnswer = null;
                     stats.total++;
                     updateStats();
@@ -1199,23 +1267,35 @@ ${userAnswer}
 
                     // 2. 出題
                     updateStatus(currentQuestion.japanese, '', '', '');
+                    console.log('Speaking question...');
                     await speak(currentQuestion.japanese);
+                    console.log('Question spoken');
 
-                    if (!isRunning) break;
+                    if (!isRunning) {
+                        console.log('Stopped during question');
+                        break;
+                    }
 
                     await sleep(500);
 
                     // 3. 音声認識開始
+                    console.log('Starting listening...');
                     await startListening();
+                    console.log('Listening completed, answer:', currentAnswer);
 
-                    if (!isRunning) break;
+                    if (!isRunning) {
+                        console.log('Stopped during listening');
+                        break;
+                    }
 
                     // 4. 判定とフィードバック
                     if (currentAnswer) {
                         updateStatus(currentQuestion.japanese, currentAnswer, '判定中...', '');
                         setButtonLoading(true);
 
+                        console.log('Evaluating answer...');
                         const evaluation = await evaluateAnswer(currentAnswer, currentQuestion.english, currentQuestion.japanese);
+                        console.log('Evaluation result:', evaluation.score);
                         
                         setButtonLoading(false);
 
@@ -1231,28 +1311,47 @@ ${userAnswer}
                         const feedbackText = `${evaluation.feedback} ${evaluation.comment}`;
                         updateStatus(currentQuestion.japanese, currentAnswer, feedbackText, `正解: ${currentQuestion.english}`);
                         
+                        console.log('Speaking feedback...');
                         await speak(feedbackText);
+                        console.log('Feedback spoken');
+                        
                         await sleep(500);
+                        
+                        console.log('Speaking correct answer...');
                         await speak(currentQuestion.english, 'en-US');
+                        console.log('Correct answer spoken');
                     } else {
                         // タイムアウトまたはスキップ
                         updateStatus(currentQuestion.japanese, '(回答なし)', '正解を確認しましょう', `正解: ${currentQuestion.english}`);
+                        
+                        console.log('No answer, speaking confirmation...');
                         await speak('正解を確認しましょう');
                         await sleep(500);
+                        
+                        console.log('Speaking correct answer...');
                         await speak(currentQuestion.english, 'en-US');
+                        console.log('Correct answer spoken');
                     }
 
-                    if (!isRunning) break;
+                    if (!isRunning) {
+                        console.log('Stopped during feedback');
+                        break;
+                    }
 
                     // 5. 次の問題へ
+                    console.log('Waiting 3 seconds before next question...');
                     await sleep(3000);
+                    console.log('Moving to next question');
 
                 } catch (error) {
                     console.error('トレーニングループエラー:', error);
+                    console.error('Error stack:', error.stack);
                     await speak('エラーが発生しました。次の問題に進みます。');
                     await sleep(2000);
                 }
             }
+            
+            console.log('=== Training loop ended ===');
         }
 
         // 音声認識開始
@@ -1595,3 +1694,4 @@ ${userAnswer}
     </script>
 </body>
 </html>
+
