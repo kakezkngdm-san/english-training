@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>文法別英作文トレーニング</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .settings-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .settings-panel.collapsed {
+            max-height: 50px;
+            overflow: hidden;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .settings-header h2 {
+            font-size: 1.1rem;
+            color: #4ecdc4;
+        }
+
+        .toggle-btn {
+            background: rgba(78, 205, 196, 0.2);
+            border: 1px solid #4ecdc4;
+            color: #4ecdc4;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .setting-group {
+            margin-bottom: 12px;
+        }
+
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            color: #b8b8b8;
+        }
+
+        .grammar-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .grammar-btn {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .grammar-btn.active {
+            background: #4ecdc4;
+            border-color: #4ecdc4;
+            color: #1a1a2e;
+        }
+
+        .main-control {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .status-display {
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 30px;
+        }
+
+        .status-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .question { color: #4ecdc4; font-size: 1.2rem; font-weight: bold; }
+        .answer { color: #ffd93d; }
+        .feedback { color: #95e1d3; }
+        .correct { color: #b8b8b8; }
+
+        .control-button {
+            width: 200px;
+            height: 80px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            color: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(78, 205, 196, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .control-button:active {
+            transform: scale(0.95);
+        }
+
+        .control-button.listening {
+            background: linear-gradient(135deg, #f38181 0%, #e84545 100%);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-item .label {
+            font-size: 0.8rem;
+            color: #b8b8b8;
+        }
+
+        .stat-item .value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .init-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .init-overlay h1 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #4ecdc4;
+            text-align: center;
+        }
+
+        .init-button {
+            padding: 18px 50px;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            border: none;
+            border-radius: 15px;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+    </style>
+</head>
+<body>
+    <!-- 初期化オーバーレイ -->
+    <div id="initOverlay" class="init-overlay">
+        <h1>🎯 文法別英作文トレーニング</h1>
+        <p style="margin-bottom: 25px; color: #b8b8b8; text-align: center;">
+            音量を上げてください<br>
+            サイレントモードを解除してください
+        </p>
+        <button class="init-button" onclick="initializeApp()">タップして開始</button>
+    </div>
+
+    <!-- 設定パネル -->
+    <div id="settingsPanel" class="settings-panel collapsed">
+        <div class="settings-header">
+            <h2>⚙️ 設定</h2>
+            <button class="toggle-btn" onclick="toggleSettings()">開く</button>
+        </div>
+
+        <div id="settingsContent">
+            <div class="setting-group">
+                <label>考える時間: <span class="slider-value" id="thinkTimeValue">8</span>秒</label>
+                <input type="range" id="thinkTime" min="5" max="15" value="8" oninput="updateThinkTime(this.value)">
+            </div>
+
+            <div class="setting-group">
+                <label>文法選択:</label>
+                <div class="grammar-selector">
+                    <button class="grammar-btn active" data-grammar="be動詞" onclick="toggleGrammar(this)">be動詞</button>
+                    <button class="grammar-btn active" data-grammar="一般動詞" onclick="toggleGrammar(this)">一般動詞</button>
+                    <button class="grammar-btn active" data-grammar="過去形" onclick="toggleGrammar(this)">過去形</button>
+                    <button class="grammar-btn active" data-grammar="未来形" onclick="toggleGrammar(this)">未来形</button>
+                    <button class="grammar-btn active" data-grammar="進行形" onclick="toggleGrammar(this)">進行形</button>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.75rem; color: #b8b8b8;">
+                    選択なし=全て出題
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <label>カスタム問題CSV:</label>
+                <input type="file" id="csvUpload" accept=".csv" onchange="handleCSVUpload(event)" style="width: 100%; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; font-size: 0.85rem;">
+                <div style="margin-top: 5px; font-size: 0.75rem; color: #b8b8b8;">
+                    形式: 日本語,英語,文法<br>
+                    例: このプロジェクトは予定通りです,The project is on schedule,be動詞
+                </div>
+                <div id="csvStatus" style="margin-top: 5px; font-size: 0.8rem; color: #4ecdc4;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインコントロール -->
+    <div class="main-control">
+        <div class="status-display">
+            <div class="status-item question" id="currentQuestion">準備中...</div>
+            <div class="status-item answer" id="userAnswer"></div>
+            <div class="status-item feedback" id="feedback"></div>
+            <div class="status-item correct" id="correctAnswer"></div>
+        </div>
+
+        <button id="controlButton" class="control-button" onclick="toggleTraining()">
+            トレーニング開始
+        </button>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="label">問題数</div>
+                <div class="value" id="questionCount">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">正解</div>
+                <div class="value" id="correctCount">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let isRunning = false;
+        let recognition = null;
+        let currentQuestion = null;
+        let currentAnswer = null;
+        let isListening = false;
+        let selectedGrammars = [];
+        let stats = { total: 0, correct: 0 };
+        let customQuestions = [];
+
+        // 内蔵問題データ（各文法50問ずつ）
+        const builtInQuestions = [
+            // be動詞（50問）
+            { japanese: "このプロジェクトは予定通りです", english: "The project is on schedule", grammar: "be動詞" },
+            { japanese: "現在の主な課題はコストです", english: "The main issue is cost", grammar: "be動詞" },
+            { japanese: "この計画はまだ初期段階です", english: "The plan is still in the early stage", grammar: "be動詞" },
+            { japanese: "私の担当はこの部分です", english: "My role is this part", grammar: "be動詞" },
+            { japanese: "この結果は予想通りです", english: "The result is as expected", grammar: "be動詞" },
+            { japanese: "このアイデアはとても現実的です", english: "This idea is very practical", grammar: "be動詞" },
+            { japanese: "今の優先事項は品質です", english: "Our priority is quality now", grammar: "be動詞" },
+            { japanese: "この方法はシンプルで効果的です", english: "This method is simple and effective", grammar: "be動詞" },
+            { japanese: "次のステップは最終確認です", english: "The next step is the final check", grammar: "be動詞" },
+            { japanese: "この問題は小さなリスクです", english: "This issue is a small risk", grammar: "be動詞" },
+            { japanese: "彼女は優秀なエンジニアです", english: "She is an excellent engineer", grammar: "be動詞" },
+            { japanese: "これは重要な決定です", english: "This is an important decision", grammar: "be動詞" },
+            { japanese: "彼らは同じチームです", english: "They are on the same team", grammar: "be動詞" },
+            { japanese: "私は営業部門の責任者です", english: "I am the head of sales", grammar: "be動詞" },
+            { japanese: "この会議は非常に生産的です", english: "This meeting is very productive", grammar: "be動詞" },
+            { japanese: "彼は経験豊富なマネージャーです", english: "He is an experienced manager", grammar: "be動詞" },
+            { japanese: "それは良い質問です", english: "That is a good question", grammar: "be動詞" },
+            { japanese: "私たちは準備ができています", english: "We are ready", grammar: "be動詞" },
+            { japanese: "この資料は明確です", english: "This document is clear", grammar: "be動詞" },
+            { japanese: "彼女は会議に出席中です", english: "She is in the meeting", grammar: "be動詞" },
+            { japanese: "その提案は興味深いです", english: "The proposal is interesting", grammar: "be動詞" },
+            { japanese: "これは新しいアプローチです", english: "This is a new approach", grammar: "be動詞" },
+            { japanese: "私は賛成です", english: "I am in favor", grammar: "be動詞" },
+            { japanese: "その情報は正確です", english: "The information is accurate", grammar: "be動詞" },
+            { japanese: "彼らは協力的です", english: "They are cooperative", grammar: "be動詞" },
+            { japanese: "この状況は複雑です", english: "This situation is complex", grammar: "be動詞" },
+            { japanese: "私たちは時間通りです", english: "We are on time", grammar: "be動詞" },
+            { japanese: "その目標は達成可能です", english: "The goal is achievable", grammar: "be動詞" },
+            { japanese: "これは良い機会です", english: "This is a good opportunity", grammar: "be動詞" },
+            { japanese: "彼は信頼できる人です", english: "He is a reliable person", grammar: "be動詞" },
+            { japanese: "その変更は必要です", english: "The change is necessary", grammar: "be動詞" },
+            { japanese: "私たちは同意見です", english: "We are in agreement", grammar: "be動詞" },
+            { japanese: "この戦略は効果的です", english: "This strategy is effective", grammar: "be動詞" },
+            { japanese: "彼女は責任感が強いです", english: "She is responsible", grammar: "be動詞" },
+            { japanese: "その問題は深刻です", english: "The problem is serious", grammar: "be動詞" },
+            { japanese: "これは正しい方向です", english: "This is the right direction", grammar: "be動詞" },
+            { japanese: "私は確信しています", english: "I am confident", grammar: "be動詞" },
+            { japanese: "そのデータは有用です", english: "The data is useful", grammar: "be動詞" },
+            { japanese: "彼らは忙しいです", english: "They are busy", grammar: "be動詞" },
+            { japanese: "この締め切りは厳しいです", english: "This deadline is tight", grammar: "be動詞" },
+            { japanese: "私たちは進行中です", english: "We are in progress", grammar: "be動詞" },
+            { japanese: "その解決策は簡単です", english: "The solution is simple", grammar: "be動詞" },
+            { japanese: "これは標準的な手順です", english: "This is the standard procedure", grammar: "be動詞" },
+            { japanese: "彼は几帳面です", english: "He is meticulous", grammar: "be動詞" },
+            { japanese: "その要件は明確です", english: "The requirements are clear", grammar: "be動詞" },
+            { japanese: "私たちは慎重です", english: "We are careful", grammar: "be動詞" },
+            { japanese: "この契約は有効です", english: "This contract is valid", grammar: "be動詞" },
+            { japanese: "彼女は専門家です", english: "She is an expert", grammar: "be動詞" },
+            { japanese: "その成果は印象的です", english: "The results are impressive", grammar: "be動詞" },
+            { japanese: "これは最終版です", english: "This is the final version", grammar: "be動詞" },
+
+            // 一般動詞（50問）
+            { japanese: "私は毎日レポートを書きます", english: "I write reports every day", grammar: "一般動詞" },
+            { japanese: "彼女はクライアントと話します", english: "She talks with clients", grammar: "一般動詞" },
+            { japanese: "私たちはチームで働きます", english: "We work as a team", grammar: "一般動詞" },
+            { japanese: "彼はデータを分析します", english: "He analyzes data", grammar: "一般動詞" },
+            { japanese: "私は毎朝メールをチェックします", english: "I check emails every morning", grammar: "一般動詞" },
+            { japanese: "彼らは問題を解決します", english: "They solve problems", grammar: "一般動詞" },
+            { japanese: "彼女はプレゼンを準備します", english: "She prepares presentations", grammar: "一般動詞" },
+            { japanese: "私たちは目標を設定します", english: "We set goals", grammar: "一般動詞" },
+            { japanese: "彼は意見を共有します", english: "He shares opinions", grammar: "一般動詞" },
+            { japanese: "私は計画を立てます", english: "I make plans", grammar: "一般動詞" },
+            { japanese: "彼女は顧客をサポートします", english: "She supports customers", grammar: "一般動詞" },
+            { japanese: "私たちは進捗を確認します", english: "We check progress", grammar: "一般動詞" },
+            { japanese: "彼はミーティングを主催します", english: "He hosts meetings", grammar: "一般動詞" },
+            { japanese: "私は資料を作成します", english: "I create documents", grammar: "一般動詞" },
+            { japanese: "彼らは協力します", english: "They cooperate", grammar: "一般動詞" },
+            { japanese: "彼女は提案を提出します", english: "She submits proposals", grammar: "一般動詞" },
+            { japanese: "私たちは品質を管理します", english: "We manage quality", grammar: "一般動詞" },
+            { japanese: "彼は予算を計算します", english: "He calculates budgets", grammar: "一般動詞" },
+            { japanese: "私は締め切りを守ります", english: "I meet deadlines", grammar: "一般動詞" },
+            { japanese: "彼女はアイデアを提案します", english: "She suggests ideas", grammar: "一般動詞" },
+            { japanese: "私たちは変更を実装します", english: "We implement changes", grammar: "一般動詞" },
+            { japanese: "彼は結果を報告します", english: "He reports results", grammar: "一般動詞" },
+            { japanese: "私はタスクを完了します", english: "I complete tasks", grammar: "一般動詞" },
+            { japanese: "彼らは戦略を開発します", english: "They develop strategies", grammar: "一般動詞" },
+            { japanese: "彼女は会議を調整します", english: "She coordinates meetings", grammar: "一般動詞" },
+            { japanese: "私たちは改善を続けます", english: "We continue improving", grammar: "一般動詞" },
+            { japanese: "彼は承認を得ます", english: "He gets approval", grammar: "一般動詞" },
+            { japanese: "私はフィードバックを提供します", english: "I provide feedback", grammar: "一般動詞" },
+            { japanese: "彼女は指示に従います", english: "She follows instructions", grammar: "一般動詞" },
+            { japanese: "私たちは効率を向上させます", english: "We improve efficiency", grammar: "一般動詞" },
+            { japanese: "彼は問い合わせに対応します", english: "He handles inquiries", grammar: "一般動詞" },
+            { japanese: "私は優先順位をつけます", english: "I prioritize tasks", grammar: "一般動詞" },
+            { japanese: "彼らは知識を共有します", english: "They share knowledge", grammar: "一般動詞" },
+            { japanese: "彼女は契約を交渉します", english: "She negotiates contracts", grammar: "一般動詞" },
+            { japanese: "私たちはリスクを評価します", english: "We assess risks", grammar: "一般動詞" },
+            { japanese: "彼は要件を理解します", english: "He understands requirements", grammar: "一般動詞" },
+            { japanese: "私は記録を保管します", english: "I keep records", grammar: "一般動詞" },
+            { japanese: "彼女は変化に適応します", english: "She adapts to changes", grammar: "一般動詞" },
+            { japanese: "私たちは基準を満たします", english: "We meet standards", grammar: "一般動詞" },
+            { japanese: "彼は期待を超えます", english: "He exceeds expectations", grammar: "一般動詞" },
+            { japanese: "私は情報を収集します", english: "I gather information", grammar: "一般動詞" },
+            { japanese: "彼らは決定を下します", english: "They make decisions", grammar: "一般動詞" },
+            { japanese: "彼女はプロセスを最適化します", english: "She optimizes processes", grammar: "一般動詞" },
+            { japanese: "私たちは目的を達成します", english: "We achieve objectives", grammar: "一般動詞" },
+            { japanese: "彼は問題を特定します", english: "He identifies problems", grammar: "一般動詞" },
+            { japanese: "私は手順を説明します", english: "I explain procedures", grammar: "一般動詞" },
+            { japanese: "彼女は成果を測定します", english: "She measures results", grammar: "一般動詞" },
+            { japanese: "私たちは価値を提供します", english: "We deliver value", grammar: "一般動詞" },
+            { japanese: "彼は責任を負います", english: "He takes responsibility", grammar: "一般動詞" },
+            { japanese: "私は詳細に注目します", english: "I focus on details", grammar: "一般動詞" },
+
+            // 過去形（50問）
+            { japanese: "私は昨日レポートを完成させました", english: "I finished the report yesterday", grammar: "過去形" },
+            { japanese: "彼女はクライアントに連絡しました", english: "She contacted the client", grammar: "過去形" },
+            { japanese: "私たちは先週会議を開きました", english: "We held a meeting last week", grammar: "過去形" },
+            { japanese: "彼はプロジェクトを開始しました", english: "He started the project", grammar: "過去形" },
+            { japanese: "私は朝メールを送りました", english: "I sent emails this morning", grammar: "過去形" },
+            { japanese: "彼らは問題を解決しました", english: "They solved the problem", grammar: "過去形" },
+            { japanese: "彼女は提案を提出しました", english: "She submitted the proposal", grammar: "過去形" },
+            { japanese: "私たちは目標を達成しました", english: "We achieved the goal", grammar: "過去形" },
+            { japanese: "彼は決定を下しました", english: "He made a decision", grammar: "過去形" },
+            { japanese: "私は資料を作成しました", english: "I created the document", grammar: "過去形" },
+            { japanese: "彼女は顧客をサポートしました", english: "She supported the customer", grammar: "過去形" },
+            { japanese: "私たちは進捗を確認しました", english: "We checked the progress", grammar: "過去形" },
+            { japanese: "彼はミーティングを主催しました", english: "He hosted the meeting", grammar: "過去形" },
+            { japanese: "私は計画を立てました", english: "I made a plan", grammar: "過去形" },
+            { japanese: "彼らは協力しました", english: "They cooperated", grammar: "過去形" },
+            { japanese: "彼女はアイデアを提案しました", english: "She suggested an idea", grammar: "過去形" },
+            { japanese: "私たちは変更を実装しました", english: "We implemented the change", grammar: "過去形" },
+            { japanese: "彼は結果を報告しました", english: "He reported the results", grammar: "過去形" },
+            { japanese: "私はタスクを完了しました", english: "I completed the task", grammar: "過去形" },
+            { japanese: "彼女は会議を調整しました", english: "She coordinated the meeting", grammar: "過去形" },
+            { japanese: "私たちは品質を改善しました", english: "We improved the quality", grammar: "過去形" },
+            { japanese: "彼は承認を得ました", english: "He got approval", grammar: "過去形" },
+            { japanese: "私はフィードバックを提供しました", english: "I provided feedback", grammar: "過去形" },
+            { japanese: "彼らは戦略を開発しました", english: "They developed a strategy", grammar: "過去形" },
+            { japanese: "彼女は指示に従いました", english: "She followed the instructions", grammar: "過去形" },
+            { japanese: "私たちは締め切りを守りました", english: "We met the deadline", grammar: "過去形" },
+            { japanese: "彼は問い合わせに対応しました", english: "He handled the inquiry", grammar: "過去形" },
+            { japanese: "私は優先順位をつけました", english: "I prioritized the tasks", grammar: "過去形" },
+            { japanese: "彼女は契約を交渉しました", english: "She negotiated the contract", grammar: "過去形" },
+            { japanese: "私たちはリスクを評価しました", english: "We assessed the risks", grammar: "過去形" },
+            { japanese: "彼は要件を理解しました", english: "He understood the requirements", grammar: "過去形" },
+            { japanese: "私は記録を保管しました", english: "I kept the records", grammar: "過去形" },
+            { japanese: "彼らは知識を共有しました", english: "They shared knowledge", grammar: "過去形" },
+            { japanese: "彼女は変化に適応しました", english: "She adapted to the changes", grammar: "過去形" },
+            { japanese: "私たちは基準を満たしました", english: "We met the standards", grammar: "過去形" },
+            { japanese: "彼は期待を超えました", english: "He exceeded expectations", grammar: "過去形" },
+            { japanese: "私は情報を収集しました", english: "I gathered information", grammar: "過去形" },
+            { japanese: "彼女はプロセスを最適化しました", english: "She optimized the process", grammar: "過去形" },
+            { japanese: "私たちは目的を達成しました", english: "We achieved the objective", grammar: "過去形" },
+            { japanese: "彼は問題を特定しました", english: "He identified the problem", grammar: "過去形" },
+            { japanese: "私は手順を説明しました", english: "I explained the procedure", grammar: "過去形" },
+            { japanese: "彼らは決定を下しました", english: "They made a decision", grammar: "過去形" },
+            { japanese: "彼女は成果を測定しました", english: "She measured the results", grammar: "過去形" },
+            { japanese: "私たちは価値を提供しました", english: "We delivered value", grammar: "過去形" },
+            { japanese: "彼は責任を負いました", english: "He took responsibility", grammar: "過去形" },
+            { japanese: "私は詳細に注目しました", english: "I focused on details", grammar: "過去形" },
+            { japanese: "彼女はチームをリードしました", english: "She led the team", grammar: "過去形" },
+            { japanese: "私たちは計画を実行しました", english: "We executed the plan", grammar: "過去形" },
+            { japanese: "彼はデータを分析しました", english: "He analyzed the data", grammar: "過去形" },
+            { japanese: "私は承認を求めました", english: "I requested approval", grammar: "過去形" },
+
+            // 未来形（50問）
+            { japanese: "私は明日レポートを送ります", english: "I will send the report tomorrow", grammar: "未来形" },
+            { japanese: "彼女は来週クライアントに会います", english: "She will meet the client next week", grammar: "未来形" },
+            { japanese: "私たちは午後会議を開きます", english: "We will hold a meeting this afternoon", grammar: "未来形" },
+            { japanese: "彼はプロジェクトを開始します", english: "He will start the project", grammar: "未来形" },
+            { japanese: "私は後でメールをチェックします", english: "I will check emails later", grammar: "未来形" },
+            { japanese: "彼らは問題を解決します", english: "They will solve the problem", grammar: "未来形" },
+            { japanese: "彼女は提案を提出します", english: "She will submit the proposal", grammar: "未来形" },
+            { japanese: "私たちは目標を達成します", english: "We will achieve the goal", grammar: "未来形" },
+            { japanese: "彼は決定を下します", english: "He will make a decision", grammar: "未来形" },
+            { japanese: "私は資料を作成します", english: "I will create the document", grammar: "未来形" },
+            { japanese: "彼女は顧客をサポートします", english: "She will support the customer", grammar: "未来形" },
+            { japanese: "私たちは進捗を確認します", english: "We will check the progress", grammar: "未来形" },
+            { japanese: "彼はミーティングを主催します", english: "He will host the meeting", grammar: "未来形" },
+            { japanese: "私は計画を立てます", english: "I will make a plan", grammar: "未来形" },
+            { japanese: "彼らは協力します", english: "They will cooperate", grammar: "未来形" },
+            { japanese: "彼女はアイデアを提案します", english: "She will suggest an idea", grammar: "未来形" },
+            { japanese: "私たちは変更を実装します", english: "We will implement the change", grammar: "未来形" },
+            { japanese: "彼は結果を報告します", english: "He will report the results", grammar: "未来形" },
+            { japanese: "私はタスクを完了します", english: "I will complete the task", grammar: "未来形" },
+            { japanese: "彼女は会議を調整します", english: "She will coordinate the meeting", grammar: "未来形" },
+            { japanese: "私たちは品質を改善します", english: "We will improve the quality", grammar: "未来形" },
+            { japanese: "彼は承認を得ます", english: "He will get approval", grammar: "未来形" },
+            { japanese: "私はフィードバックを提供します", english: "I will provide feedback", grammar: "未来形" },
+            { japanese: "彼らは戦略を開発します", english: "They will develop a strategy", grammar: "未来形" },
+            { japanese: "彼女は指示に従います", english: "She will follow the instructions", grammar: "未来形" },
+            { japanese: "私たちは締め切りを守ります", english: "We will meet the deadline", grammar: "未来形" },
+            { japanese: "彼は問い合わせに対応します", english: "He will handle the inquiry", grammar: "未来形" },
+            { japanese: "私は優先順位をつけます", english: "I will prioritize the tasks", grammar: "未来形" },
+            { japanese: "彼女は契約を交渉します", english: "She will negotiate the contract", grammar: "未来形" },
+            { japanese: "私たちはリスクを評価します", english: "We will assess the risks", grammar: "未来形" },
+            { japanese: "彼は要件を理解します", english: "He will understand the requirements", grammar: "未来形" },
+            { japanese: "私は記録を保管します", english: "I will keep the records", grammar: "未来形" },
+            { japanese: "彼らは知識を共有します", english: "They will share knowledge", grammar: "未来形" },
+            { japanese: "彼女は変化に適応します", english: "She will adapt to the changes", grammar: "未来形" },
+            { japanese: "私たちは基準を満たします", english: "We will meet the standards", grammar: "未来形" },
+            { japanese: "彼は期待を超えます", english: "He will exceed expectations", grammar: "未来形" },
+            { japanese: "私は情報を収集します", english: "I will gather information", grammar: "未来形" },
+            { japanese: "彼女はプロセスを最適化します", english: "She will optimize the process", grammar: "未来形" },
+            { japanese: "私たちは目的を達成します", english: "We will achieve the objective", grammar: "未来形" },
+            { japanese: "彼は問題を特定します", english: "He will identify the problem", grammar: "未来形" },
+            { japanese: "私は手順を説明します", english: "I will explain the procedure", grammar: "未来形" },
+            { japanese: "彼らは決定を下します", english: "They will make a decision", grammar: "未来形" },
+            { japanese: "彼女は成果を測定します", english: "She will measure the results", grammar: "未来形" },
+            { japanese: "私たちは価値を提供します", english: "We will deliver value", grammar: "未来形" },
+            { japanese: "彼は責任を負います", english: "He will take responsibility", grammar: "未来形" },
+            { japanese: "私は詳細に注目します", english: "I will focus on details", grammar: "未来形" },
+            { japanese: "彼女はチームをリードします", english: "She will lead the team", grammar: "未来形" },
+            { japanese: "私たちは計画を実行します", english: "We will execute the plan", grammar: "未来形" },
+            { japanese: "彼はデータを分析します", english: "He will analyze the data", grammar: "未来形" },
+            { japanese: "私は承認を求めます", english: "I will request approval", grammar: "未来形" },
+
+            // 進行形（50問）
+            { japanese: "私は現在レポートを書いています", english: "I am writing the report now", grammar: "進行形" },
+            { japanese: "彼女はクライアントと話しています", english: "She is talking with the client", grammar: "進行形" },
+            { japanese: "私たちは会議を開いています", english: "We are holding a meeting", grammar: "進行形" },
+            { japanese: "彼はプロジェクトを進めています", english: "He is proceeding with the project", grammar: "進行形" },
+            { japanese: "私はメールをチェックしています", english: "I am checking emails", grammar: "進行形" },
+            { japanese: "彼らは問題を解決しています", english: "They are solving the problem", grammar: "進行形" },
+            { japanese: "彼女は提案を準備しています", english: "She is preparing the proposal", grammar: "進行形" },
+            { japanese: "私たちは目標を達成しようとしています", english: "We are trying to achieve the goal", grammar: "進行形" },
+            { japanese: "彼は意見を共有しています", english: "He is sharing his opinion", grammar: "進行形" },
+            { japanese: "私は計画を立てています", english: "I am making a plan", grammar: "進行形" },
+            { japanese: "彼女は顧客をサポートしています", english: "She is supporting the customer", grammar: "進行形" },
+            { japanese: "私たちは進捗を確認しています", english: "We are checking the progress", grammar: "進行形" },
+            { japanese: "彼はミーティングを主催しています", english: "He is hosting the meeting", grammar: "進行形" },
+            { japanese: "私は資料を作成しています", english: "I am creating the document", grammar: "進行形" },
+            { japanese: "彼らは協力しています", english: "They are cooperating", grammar: "進行形" },
+            { japanese: "彼女はアイデアを提案しています", english: "She is suggesting an idea", grammar: "進行形" },
+            { japanese: "私たちは変更を実装しています", english: "We are implementing the change", grammar: "進行形" },
+            { japanese: "彼は結果を報告しています", english: "He is reporting the results", grammar: "進行形" },
+            { japanese: "私はタスクを完了しています", english: "I am completing the task", grammar: "進行形" },
+            { japanese: "彼女は会議を調整しています", english: "She is coordinating the meeting", grammar: "進行形" },
+            { japanese: "私たちは品質を改善しています", english: "We are improving the quality", grammar: "進行形" },
+            { japanese: "彼は承認を得ようとしています", english: "He is getting approval", grammar: "進行形" },
+            { japanese: "私はフィードバックを提供しています", english: "I am providing feedback", grammar: "進行形" },
+            { japanese: "彼らは戦略を開発しています", english: "They are developing a strategy", grammar: "進行形" },
+            { japanese: "彼女は指示に従っています", english: "She is following the instructions", grammar: "進行形" },
+            { japanese: "私たちは締め切りに間に合わせようとしています", english: "We are trying to meet the deadline", grammar: "進行形" },
+            { japanese: "彼は問い合わせに対応しています", english: "He is handling the inquiry", grammar: "進行形" },
+            { japanese: "私はタスクに優先順位をつけています", english: "I am prioritizing the tasks", grammar: "進行形" },
+            { japanese: "彼女は契約を交渉しています", english: "She is negotiating the contract", grammar: "進行形" },
+            { japanese: "私たちはリスクを評価しています", english: "We are assessing the risks", grammar: "進行形" },
+            { japanese: "彼は要件を理解しようとしています", english: "He is understanding the requirements", grammar: "進行形" },
+            { japanese: "私は記録を保管しています", english: "I am keeping the records", grammar: "進行形" },
+            { japanese: "彼らは知識を共有しています", english: "They are sharing knowledge", grammar: "進行形" },
+            { japanese: "彼女は変化に適応しています", english: "She is adapting to the changes", grammar: "進行形" },
+            { japanese: "私たちは基準を満たそうとしています", english: "We are trying to meet the standards", grammar: "進行形" },
+            { japanese: "彼は期待を超えようとしています", english: "He is trying to exceed expectations", grammar: "進行形" },
+            { japanese: "私は情報を収集しています", english: "I am gathering information", grammar: "進行形" },
+            { japanese: "彼女はプロセスを最適化しています", english: "She is optimizing the process", grammar: "進行形" },
+            { japanese: "私たちは目的を達成しようとしています", english: "We are trying to achieve the objective", grammar: "進行形" },
+            { japanese: "彼は問題を特定しています", english: "He is identifying the problem", grammar: "進行形" },
+            { japanese: "私は手順を説明しています", english: "I am explaining the procedure", grammar: "進行形" },
+            { japanese: "彼らは決定を下しています", english: "They are making a decision", grammar: "進行形" },
+            { japanese: "彼女は成果を測定しています", english: "She is measuring the results", grammar: "進行形" },
+            { japanese: "私たちは価値を提供しています", english: "We are delivering value", grammar: "進行形" },
+            { japanese: "彼は責任を負っています", english: "He is taking responsibility", grammar: "進行形" },
+            { japanese: "私は詳細に注目しています", english: "I am focusing on details", grammar: "進行形" },
+            { japanese: "彼女はチームをリードしています", english: "She is leading the team", grammar: "進行形" },
+            { japanese: "私たちは計画を実行しています", english: "We are executing the plan", grammar: "進行形" },
+            { japanese: "彼はデータを分析しています", english: "He is analyzing the data", grammar: "進行形" },
+            { japanese: "私は承認を求めています", english: "I am requesting approval", grammar: "進行形" }
+        ];
+
+        // 音声合成
+        function speak(text, lang = 'ja-JP') {
+            return new Promise((resolve) => {
+                speechSynthesis.cancel();
+                setTimeout(() => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = lang;
+                    utterance.rate = lang === 'ja-JP' ? 0.9 : 0.85;
+                    utterance.onend = () => resolve();
+                    speechSynthesis.speak(utterance);
+                }, 100);
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 初期化
+        async function initializeApp() {
+            try {
+                document.getElementById('initOverlay').classList.add('hidden');
+                
+                // 音声認識初期化
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = 'en-US';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+
+                loadSettings();
+                await speak('初期化完了');
+                updateStatus('準備完了！', '', 'トレーニング開始ボタンを押してください', '');
+            } catch (error) {
+                alert(`初期化エラー: ${error.message}`);
+            }
+        }
+
+        // 設定トグル
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            const btn = event.target;
+            panel.classList.toggle('collapsed');
+            btn.textContent = panel.classList.contains('collapsed') ? '開く' : '閉じる';
+        }
+
+        function updateThinkTime(value) {
+            document.getElementById('thinkTimeValue').textContent = value;
+            saveSettings();
+        }
+
+        function toggleGrammar(btn) {
+            btn.classList.toggle('active');
+            updateSelectedGrammars();
+        }
+
+        function updateSelectedGrammars() {
+            selectedGrammars = Array.from(document.querySelectorAll('.grammar-btn.active'))
+                .map(btn => btn.dataset.grammar);
+            saveSettings();
+        }
+
+        // CSV処理
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                customQuestions = [];
+                
+                lines.forEach((line) => {
+                    line = line.trim();
+                    if (!line || line.startsWith('#')) return;
+                    
+                    const parts = line.split(',').map(p => p.trim());
+                    if (parts.length >= 2) {
+                        customQuestions.push({
+                            japanese: parts[0],
+                            english: parts[1],
+                            grammar: parts[2] || 'その他'
+                        });
+                    }
+                });
+                
+                localStorage.setItem('customQuestions', JSON.stringify(customQuestions));
+                
+                const statusDiv = document.getElementById('csvStatus');
+                if (customQuestions.length > 0) {
+                    statusDiv.textContent = `✓ ${customQuestions.length}問を読み込みました`;
+                    speak(`${customQuestions.length}問のカスタム問題を読み込みました`);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 問題生成
+        function generateQuestion() {
+            let questions = customQuestions.length > 0 ? customQuestions : builtInQuestions;
+            
+            // 文法フィルター
+            if (selectedGrammars.length > 0) {
+                questions = questions.filter(q => selectedGrammars.includes(q.grammar));
+            }
+            
+            if (questions.length === 0) {
+                speak('選択された文法の問題がありません');
+                return null;
+            }
+            
+            return questions[Math.floor(Math.random() * questions.length)];
+        }
+
+        // 音声認識
+        function startListening() {
+            return new Promise((resolve) => {
+                if (!recognition) {
+                    resolve();
+                    return;
+                }
+
+                isListening = true;
+                const button = document.getElementById('controlButton');
+                button.classList.add('listening');
+                button.textContent = '聞いています...';
+
+                const thinkTime = parseInt(document.getElementById('thinkTime').value) * 1000;
+
+                const timeout = setTimeout(() => {
+                    if (isListening) {
+                        isListening = false;
+                        try { recognition.stop(); } catch (e) {}
+                        button.classList.remove('listening');
+                        button.textContent = '一時停止';
+                        resolve();
+                    }
+                }, thinkTime);
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript.trim();
+                    if (transcript && isListening) {
+                        currentAnswer = transcript;
+                        isListening = false;
+                        clearTimeout(timeout);
+                        button.classList.remove('listening');
+                        button.textContent = '一時停止';
+                        try { recognition.stop(); } catch (e) {}
+                        resolve();
+                    }
+                };
+
+                recognition.onerror = () => {
+                    if (isListening) {
+                        isListening = false;
+                        clearTimeout(timeout);
+                        button.classList.remove('listening');
+                        button.textContent = '一時停止';
+                        resolve();
+                    }
+                };
+
+                try {
+                    recognition.start();
+                } catch (error) {
+                    isListening = false;
+                    clearTimeout(timeout);
+                    button.classList.remove('listening');
+                    resolve();
+                }
+            });
+        }
+
+        // 評価
+        function evaluateAnswer(userAnswer, correctAnswer) {
+            const userLower = userAnswer.toLowerCase().trim();
+            const correctLower = correctAnswer.toLowerCase().trim();
+
+            if (userLower === correctLower) {
+                return { score: 'perfect', feedback: '完璧です！' };
+            }
+
+            const correctWords = correctLower.split(/\s+/);
+            const matchedWords = correctWords.filter(word => userLower.includes(word));
+            const matchRate = matchedWords.length / correctWords.length;
+
+            if (matchRate > 0.7) {
+                return { score: 'good', feedback: 'いいですね！' };
+            } else if (matchRate > 0.4) {
+                return { score: 'acceptable', feedback: '惜しい！' };
+            } else {
+                return { score: 'incorrect', feedback: '正解を確認' };
+            }
+        }
+
+        // トレーニングループ
+        async function runTrainingLoop() {
+            while (isRunning) {
+                try {
+                    currentQuestion = generateQuestion();
+                    if (!currentQuestion) break;
+                    
+                    currentAnswer = null;
+                    stats.total++;
+                    updateStats();
+
+                    updateStatus(currentQuestion.japanese, '', '', '');
+                    await speak(currentQuestion.japanese);
+                    if (!isRunning) break;
+
+                    await sleep(800);
+                    await startListening();
+                    if (!isRunning) break;
+
+                    if (currentAnswer) {
+                        const evaluation = evaluateAnswer(currentAnswer, currentQuestion.english);
+                        
+                        if (evaluation.score === 'perfect' || evaluation.score === 'good') {
+                            stats.correct++;
+                        }
+                        updateStats();
+
+                        updateStatus(currentQuestion.japanese, currentAnswer, evaluation.feedback, `正解: ${currentQuestion.english}`);
+                        await speak(evaluation.feedback);
+                        await sleep(500);
+                        await speak(currentQuestion.english, 'en-US');
+                    } else {
+                        updateStatus(currentQuestion.japanese, '(回答なし)', '正解を確認', `正解: ${currentQuestion.english}`);
+                        await speak('正解を言います');
+                        await sleep(300);
+                        await speak(currentQuestion.english, 'en-US');
+                    }
+
+                    if (!isRunning) break;
+                    await sleep(2500);
+
+                } catch (error) {
+                    await sleep(2000);
+                }
+            }
+        }
+
+        function toggleTraining() {
+            if (isRunning) {
+                stopTraining();
+            } else {
+                startTraining();
+            }
+        }
+
+        function startTraining() {
+            isRunning = true;
+            document.getElementById('controlButton').textContent = '一時停止';
+            runTrainingLoop();
+        }
+
+        function stopTraining() {
+            isRunning = false;
+            isListening = false;
+            try { recognition.stop(); } catch (e) {}
+            document.getElementById('controlButton').textContent = 'トレーニング開始';
+            document.getElementById('controlButton').classList.remove('listening');
+        }
+
+        function updateStatus(question, answer, feedback, correct) {
+            document.getElementById('currentQuestion').textContent = question;
+            document.getElementById('userAnswer').textContent = answer;
+            document.getElementById('feedback').textContent = feedback;
+            document.getElementById('correctAnswer').textContent = correct;
+        }
+
+        function updateStats() {
+            document.getElementById('questionCount').textContent = stats.total;
+            document.getElementById('correctCount').textContent = stats.correct;
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem('thinkTime', document.getElementById('thinkTime').value);
+                localStorage.setItem('selectedGrammars', JSON.stringify(selectedGrammars));
+            } catch (e) {}
+        }
+
+        function loadSettings() {
+            try {
+                const thinkTime = localStorage.getItem('thinkTime');
+                if (thinkTime) {
+                    document.getElementById('thinkTime').value = thinkTime;
+                    document.getElementById('thinkTimeValue').textContent = thinkTime;
+                }
+
+                const savedGrammars = localStorage.getItem('selectedGrammars');
+                if (savedGrammars) {
+                    selectedGrammars = JSON.parse(savedGrammars);
+                    document.querySelectorAll('.grammar-btn').forEach(btn => {
+                        if (selectedGrammars.includes(btn.dataset.grammar)) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                }
+
+                const savedQuestions = localStorage.getItem('customQuestions');
+                if (savedQuestions) {
+                    customQuestions = JSON.parse(savedQuestions);
+                    if (customQuestions.length > 0) {
+                        document.getElementById('csvStatus').textContent = `✓ ${customQuestions.length}問を読み込み済み`;
+                    }
+                }
+            } catch (e) {}
+        }
+    </script>
+</body>
+</html>
